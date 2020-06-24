@@ -62,7 +62,6 @@ fpm_common_args = "-f -s dir --log error \
  --license {} \
  --maintainer {} \
  --config-files {} \
- --config-files {} \
  --after-install {} \
  --before-install {} \
  --after-remove {} \
@@ -73,7 +72,6 @@ fpm_common_args = "-f -s dir --log error \
     PACKAGE_URL,
     PACKAGE_LICENSE,
     MAINTAINER,
-    CONFIG_DIR + '/telegraf.conf.sample',
     LOGROTATE_DIR + '/telegraf',
     POSTINST_SCRIPT,
     PREINST_SCRIPT,
@@ -138,10 +136,10 @@ def package_scripts(build_root, config_only=False, windows=False):
     if config_only or windows:
         logging.info("Copying configuration to build directory")
         if windows:
-            shutil.copyfile(DEFAULT_WINDOWS_CONFIG, os.path.join(build_root, "telegraf.conf.sample"))
+            shutil.copyfile(DEFAULT_WINDOWS_CONFIG, os.path.join(build_root, "telegraf.conf"))
         else:
-            shutil.copyfile(DEFAULT_CONFIG, os.path.join(build_root, "telegraf.conf.sample"))
-        os.chmod(os.path.join(build_root, "telegraf.conf.sample"), 0o644)
+            shutil.copyfile(DEFAULT_CONFIG, os.path.join(build_root, "telegraf.conf"))
+        os.chmod(os.path.join(build_root, "telegraf.conf"), 0o644)
     else:
         logging.info("Copying scripts and configuration to build directory")
         shutil.copyfile(INIT_SCRIPT, os.path.join(build_root, SCRIPT_DIR[1:], INIT_SCRIPT.split('/')[1]))
@@ -150,8 +148,8 @@ def package_scripts(build_root, config_only=False, windows=False):
         os.chmod(os.path.join(build_root, SCRIPT_DIR[1:], SYSTEMD_SCRIPT.split('/')[1]), 0o644)
         shutil.copyfile(LOGROTATE_SCRIPT, os.path.join(build_root, LOGROTATE_DIR[1:], "telegraf"))
         os.chmod(os.path.join(build_root, LOGROTATE_DIR[1:], "telegraf"), 0o644)
-        shutil.copyfile(DEFAULT_CONFIG, os.path.join(build_root, CONFIG_DIR[1:], "telegraf.conf.sample"))
-        os.chmod(os.path.join(build_root, CONFIG_DIR[1:], "telegraf.conf.sample"), 0o644)
+        shutil.copyfile(DEFAULT_CONFIG, os.path.join(build_root, CONFIG_DIR[1:], "telegraf.conf"))
+        os.chmod(os.path.join(build_root, CONFIG_DIR[1:], "telegraf.conf"), 0o644)
 
 
 def run_generate():
@@ -671,7 +669,7 @@ def package(build_output, pkg_name, version, nightly=False, iteration=1, static=
                             package_version, suffix = package_version.split('~', 1)
                             # The ~ indicates that this is a prerelease so we give it a leading 0.
                             package_iteration = "0.%s" % suffix
-                        fpm_command = "fpm {} --name {} -a {} -t {} --version {} --iteration {} -C {} -p {} ".format(
+                        fpm_command = "fpm {} --name {} -a {} -t {} --version {} --iteration {} -C {} -p {}".format(
                             fpm_common_args,
                             name,
                             package_arch,
@@ -681,7 +679,12 @@ def package(build_output, pkg_name, version, nightly=False, iteration=1, static=
                             package_build_root,
                             current_location)
                         if package_type == "rpm":
-                            fpm_command += "--directories /var/log/telegraf --directories /etc/telegraf --depends coreutils --depends shadow-utils --rpm-posttrans {}".format(POSTINST_SCRIPT)
+                            fpm_command += " --directories /var/log/telegraf --directories /etc/telegraf --depends coreutils --depends shadow-utils --rpm-posttrans {}".format(POSTINST_SCRIPT)
+                            fpm_command += " --config /etc/telegraf/telegraf.conf"
+                        if package_type == "deb":
+                            conf = os.path.join(build_root, '/etc/telegraf/telegraf.conf')
+                            shutil.copy(conf, conf + '.sample')
+                            fpm_command += " --config /etc/telegraf/telegraf.conf.sample"
                         out = run(fpm_command, shell=True)
                         matches = re.search(':path=>"(.*)"', out)
                         outfile = None
